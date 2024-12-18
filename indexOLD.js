@@ -32,7 +32,7 @@ enterRoom.addEventListener('submit', (event)=>{
     const form = new FormData(enterRoom);
     const hostID = form.get('host-id');
     hostIDDisplay.innerText = hostID;
-    enterRoom.reset(); 
+    enterRoom.reset();
 
     connToHost = peer.connect(hostID);
     //waiting for connection to connect

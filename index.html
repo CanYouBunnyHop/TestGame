@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="style.css">
-    <script src="index.js" type="module"></script>
+    <script src="scriptLoader.js" type="module"></script>
     <title>Document</title>
 </head>
 <body>
@@ -13,24 +12,9 @@
             <input type="text" name="host-id" placeholder="Input Host ID...">
             <input type="submit" value="enter">
         </form>
-        <!-- <button id="host-room">Host a room</button>-->
-    </div>
-    <div>
-        Host ID: <div id="host-id" class="displayid"></div>
-        <button class="copybut">copy</button>
-    </div>
-        
-    <div>
-        User ID: <div id="user-id" class="displayid"></div>
-        <button class="copybut">copy</button>
-    </div>
-        
-    <ul id="chat"></ul>
-    <form id="msg">
-        <input type="text" name="msg" placeholder="Enter message...">
-        <input type="submit" value="enter">
-    </form>
 
-    <button onmousedown="debug()"></button>
+        <button id="host-room">Host a Room</button>
+
+    </div>
 </body>
 </html>

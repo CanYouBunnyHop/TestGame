@@ -1,5 +1,5 @@
 import {Peer} from "https://esm.sh/peerjs@1.5.4?bundle-deps";
-import {hostIDDisplay} from "/client.js"
+import {hostIDDisplay} from "./client.js"
 
 
 const HOST = new Peer();

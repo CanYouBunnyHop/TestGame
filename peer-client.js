@@ -1,5 +1,5 @@
 import {Peer} from "https://esm.sh/peerjs@1.5.4?bundle-deps";
-import {hostIDDisplay, userIDDisplay} from "/client.js"
+import {hostIDDisplay, userIDDisplay} from "./client.js"
 
 const PEER = new Peer();
 const hostId = sessionStorage.getItem('input-host-id');

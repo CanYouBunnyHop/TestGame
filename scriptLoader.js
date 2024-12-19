@@ -8,7 +8,7 @@ ENTER_ROOM_FORM.addEventListener('submit', (event)=>{
 
     sessionStorage.setItem('host-or-join', 'join');
     sessionStorage.setItem('input-host-id', hostID);
-    window.location.href = '/room';
+    window.location.href = './room';
 });
 
 HOST_ROOM_BUT.addEventListener('mousedown', (event)=>{

@@ -1,11 +1,14 @@
 const ENTER_ROOM_FORM = document.getElementById('enter-room');
 const HOST_ROOM_BUT = document.getElementById('host-room');
+const pasteBut = document.getElementById('pastebut');
 
+pasteBut.onclick = async () => {
+    pasteBut.previousElementSibling.value = await navigator.clipboard.readText();
+}
 ENTER_ROOM_FORM.addEventListener('submit', (event)=>{
     event.preventDefault();
     const form = new FormData(ENTER_ROOM_FORM);
     const hostID = form.get('host-id');
-
     sessionStorage.setItem('host-or-join', 'join');
     sessionStorage.setItem('input-host-id', hostID);
     window.location.href = './room';

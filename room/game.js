@@ -1,4 +1,4 @@
-import { Application, Graphics, Text, TextStyle, Sprite, Assets, Ticker, BlurFilter, Container, AlphaFilter, AlphaMask} from "../pixi.mjs";
+import { Application, Graphics, Text, TextStyle, Sprite, Assets, Ticker, BlurFilter, Container, AlphaFilter, AlphaMask, Texture, RenderTexture} from "../pixi.mjs";
 import Vector2 from "../modules/Vector2.js";
 import Tween, { lerp } from "../modules/Tween.js";
 import { isCloseEnough , clamp} from "../modules/Misc.js";
@@ -10,14 +10,36 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         resizeTo : window,
         backgroundAlpha : 1,
         backgroundColor : '2c2e39',
-        antialias : true 
+        antialias : true,
+        useBackBuffer: true, //idk what this is, for webgl
     });
-    //TESTING
-    const floorTex = await Assets.load('../public/images/testFloor.png');
-    const floorSprite = Sprite.from(floorTex);
-    floorSprite.scale.set(2, 2);
-    const floor = new Container().addChild(floorSprite);
+
+    //TESTING MAP
+    const bgTex = await Assets.load('../public/images/testFloor.png');
+    const bgSprite = Sprite.from(bgTex);
+    bgSprite.scale.set(2, 2);
+    const bg = new Container()
+    bg.addChild(bgSprite);
+
+    //for testing view blocking
+    const box = new Graphics().rect(100, 200, 100, 100).fill();
+    bg.addChild(box);
     
+
+    // Create a render texture to capture the background container
+    const renderTexture = RenderTexture.create({ width: app.screen.width, height: app.screen.height });
+    app.renderer.render(bg, { renderTexture });
+    const blurredBg = Sprite.from(renderTexture);
+    blurredBg.filters = [new BlurFilter({strength : 5})];
+    app.stage.addChild(blurredBg);
+
+    const darkOverlaySpr = new Sprite(Texture.WHITE);
+    darkOverlaySpr.width = app.screen.width;
+    darkOverlaySpr.height = app.screen.height;
+    darkOverlaySpr.tint = '2c2e39';
+    darkOverlaySpr.alpha = 0.5;
+    const darkOverlay = new Container().addChild(darkOverlaySpr);
+
     //Variables
     var mousePos = new Vector2(0,0);
     var playerPos = new Vector2(0,0);
@@ -26,18 +48,12 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     async function addPlayer(){
         const texture = await Assets.load('../public/images/survivor-idle_shotgun_0.png');
         const sprite = Sprite.from(texture); // new Sprite(texture)
-        sprite.position.set(700, 400);
+        const offset = new Vector2(app.screen.width/2, app.screen.height/2);
+        sprite.position.set(offset.x, offset.y); //set to middle of screen
         sprite.anchor.set(0.5, 0.5);
         sprite.scale.set(0.5, 0.5);
         sprite.eventMode = 'static';
-        sprite.on('globalpointermove', (ev)=>{
-            mousePos = new Vector2(ev.clientX, ev.clientY);
-            playerPos = new Vector2(sprite.position.x, sprite.position.y);
-
-            viewDir = mousePos.subtract(playerPos).normalized();
-            let rotDir = Math.atan2(viewDir.x, viewDir.y);
-            sprite.rotation = -rotDir + 1.5;
-        });
+        sprite.on('globalpointermove', rotatePlayer);
         return sprite;
     }
     const playerSprite = await addPlayer();
@@ -67,10 +83,14 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
 
     const viewConeTex = app.renderer.generateTexture({target: viewCone});
     const viewConeSprite = Sprite.from(viewConeTex);
-    floor.setMask({
+    darkOverlay.setMask({
+        mask: viewConeSprite,
+        inverse : true
+    });
+    bg.setMask({
         mask: viewConeSprite,
         inverse : false
-    }) //= viewConeSprite;
+    })
 
     player.addChild(viewConeSprite);
     viewConeSprite.position.x = -40;
@@ -78,35 +98,33 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     viewConeSprite.rotation = -1.5;
     viewConeSprite.anchor.set(0.5, 0);
 
-
-    //for testing view blocking
-    const box = new Graphics().rect(100, 200, 60, 60).fill();
-    //const boxTex = app.renderer.generateTexture({target: box});
-    //const boxSprite = Sprite.from(boxTex);
-    
-    
-    floor.addChild(box);
-    
-    
-    //app.stage.addChild(box);
-
+    function rotatePlayer(ev){
+        let mp = ev.getLocalPosition(app.stage);
+        mousePos = new Vector2(mp.x, mp.y);//player pos is offset
+        viewDir = mousePos.subtract(playerPos).normalized();
+        let rotDir = Math.atan2(viewDir.x, viewDir.y);
+        player.rotation = -rotDir + 1.5;
+    }
     function movePlayer(_moveAccel){
         player.position.x += _moveAccel.x;
         player.position.y += _moveAccel.y;
+
+        app.stage.position.x -= _moveAccel.x;
+        app.stage.position.y -= _moveAccel.y;
     };
+    
     var wishDir = new Vector2(0,0);
     var moveDir = new Vector2(0,0);
     var moveAccel = new Vector2(0,0);
 
     //DEBUG
-    var text = new Text({
-        text : viewDir.dot(moveDir),
-    })
-    //app.stage.addChild(text);
+    var text = new Text({ text : `${viewDir.dot(moveDir)}, ${mousePos}, ${playerPos}`})
+    app.stage.addChildAt(text, 1);
     text.position.set(300,100);
 
     let a = false, d = false, w = false, s = false;
     app.ticker.add((time) => {
+        playerPos = new Vector2(player.position.x, player.position.y);
         const DeltaTime = (time.elapsedMS/1000);
         //time.lastTime = total time elapsed in ms
         if(a && !d) wishDir.x = -1;
@@ -135,7 +153,7 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         let bckSpdMult = 0.7
         let dirSpdMult = clamp(viewDir.dot(moveDir) + 1, bckSpdMult, fwdSpdMult);
         let moveSpd = 5;
-        text.text = dirSpdMult;//DEBUG
+        text.text = `${Math.round(mousePos.x)}:${Math.round(mousePos.y)}, ${Math.round(playerPos.x)}:${Math.round(playerPos.y)}`;//DEBUG
         movePlayer(moveAccel.scale(dirSpdMult * moveSpd));
     });
 
@@ -153,7 +171,10 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     });
 
     //Add to Stage
-    app.stage.addChild(floor, player);
+    bg.label = 'bg';
+    darkOverlay.label = 'darkOverlay';
+    player.label = 'player';
+    app.stage.addChild(bg, darkOverlay, player);
     document.body.appendChild(app.canvas);
     window.__PIXI_DEVTOOLS__ = { app };
 })();

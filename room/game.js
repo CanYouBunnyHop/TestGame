@@ -42,6 +42,7 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
 
     //Variables
     var mousePos = new Vector2(0,0);
+    var mouseUIPos = new Vector2(0,0)
     var playerPos = new Vector2(0,0);
     var viewDir = new Vector2(0,0);
 
@@ -58,8 +59,6 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     }
     const playerSprite = await addPlayer();
     const player = new Container().addChild(playerSprite);
-    //player.rotation = 1.5;
-    //can use graphics context
     var viewConeGraphics = new Graphics()
         .lineTo(25, 0)
         .lineTo(500, 1000)
@@ -99,8 +98,9 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     viewConeSprite.anchor.set(0.5, 0);
 
     function rotatePlayer(ev){
+        mouseUIPos = new Vector2(ev.x, ev.y);
         let mp = ev.getLocalPosition(app.stage);
-        mousePos = new Vector2(mp.x, mp.y);//player pos is offset
+        mousePos = new Vector2(mp.x, mp.y);
         viewDir = mousePos.subtract(playerPos).normalized();
         let rotDir = Math.atan2(viewDir.x, viewDir.y);
         player.rotation = -rotDir + 1.5;
@@ -108,10 +108,22 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     function movePlayer(_moveAccel){
         player.position.x += _moveAccel.x;
         player.position.y += _moveAccel.y;
-
-        app.stage.position.x -= _moveAccel.x;
-        app.stage.position.y -= _moveAccel.y;
     };
+    function moveCamera(_moveAccel, _deltaTime, _lookDist){
+        const screenMid = new Vector2(app.screen.width/2, app.screen.height/2);
+        let displacement = mouseUIPos.subtract(screenMid);
+        let dir = displacement.normalized();
+        let ratio = new Vector2(Math.abs(displacement.x)/screenMid.x, Math.abs(displacement.y)/screenMid.y);
+
+        app.stage.pivot.x = lerp(app.stage.pivot.x, dir.x * _lookDist* 9 * ratio.x, _deltaTime);
+        app.stage.pivot.y = lerp(app.stage.pivot.y, dir.y * _lookDist* 16 * ratio.y, _deltaTime);
+
+        app.stage.position.x -= _moveAccel.x //+ lookMult.x;
+        app.stage.position.y -= _moveAccel.y //+ lookMult.y;
+    }
+    // function lookOffset(_lookFactor){
+    //     return viewDir.normalized().scale(_lookFactor);
+    // }
     
     var wishDir = new Vector2(0,0);
     var moveDir = new Vector2(0,0);
@@ -153,8 +165,10 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         let bckSpdMult = 0.7
         let dirSpdMult = clamp(viewDir.dot(moveDir) + 1, bckSpdMult, fwdSpdMult);
         let moveSpd = 5;
-        text.text = `${Math.round(mousePos.x)}:${Math.round(mousePos.y)}, ${Math.round(playerPos.x)}:${Math.round(playerPos.y)}`;//DEBUG
-        movePlayer(moveAccel.scale(dirSpdMult * moveSpd));
+        text.text = `${Math.round(mousePos.x)}:${Math.round(mousePos.y)}, ${Math.round(viewDir.x)}:${Math.round(viewDir.y)}`;//DEBUG
+        let playerAccel = moveAccel.scale(dirSpdMult * moveSpd);
+        movePlayer(playerAccel);
+        moveCamera(playerAccel, DeltaTime, 20);
     });
 
     document.addEventListener('keydown', (ev)=>{
@@ -176,6 +190,6 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     player.label = 'player';
     app.stage.addChild(bg, darkOverlay, player);
     document.body.appendChild(app.canvas);
-    window.__PIXI_DEVTOOLS__ = { app };
+    window.__PIXI_DEVTOOLS__ = { app }; //for debug extension on chromium
 })();
 

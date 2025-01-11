@@ -1,4 +1,9 @@
-import { Application, Graphics, Text, TextStyle, Sprite, Assets, Ticker, BlurFilter, Container, AlphaFilter, AlphaMask, Texture, RenderTexture} from "../pixi.mjs";
+import { 
+    Application, Graphics, 
+    Text, TextStyle, Sprite, Assets, 
+    Ticker, 
+    BlurFilter, Container, AlphaFilter, AlphaMask, Texture, RenderTexture,
+} from "../pixi.mjs";
 import Vector2 from "../modules/Vector2.js";
 import Tween, { lerp } from "../modules/Tween.js";
 import { isCloseEnough , clamp} from "../modules/Misc.js";
@@ -10,7 +15,7 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         resizeTo : window,
         backgroundAlpha : 1,
         backgroundColor : '2c2e39',
-        antialias : true,
+        antialias : false,
         useBackBuffer: true, //idk what this is, for webgl
     });
 
@@ -25,7 +30,6 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     const box = new Graphics().rect(100, 200, 100, 100).fill();
     bg.addChild(box);
     
-
     // Create a render texture to capture the background container
     const renderTexture = RenderTexture.create({ width: app.screen.width, height: app.screen.height });
     app.renderer.render(bg, { renderTexture });
@@ -59,51 +63,62 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     }
     const playerSprite = await addPlayer();
     const player = new Container().addChild(playerSprite);
-    var viewConeGraphics = new Graphics()
-        .lineTo(25, 0)
-        .lineTo(500, 1000)
-        .bezierCurveTo(250,1350, -250,1350, -500,1000)
-        .lineTo(-25, 0)
-        .stroke({width : 50, alpha : 0})
-        .fill({alpha : 1})
-    const viewCone = new Container().addChild(viewConeGraphics);
-    viewCone.filters = [new BlurFilter({ 
-        strength: 75 ,
-        quality: 12, 
-        //resolution, 
-        //kernelSize : 9 
-    })];
-    
+
     const rayCastLine = new Graphics()
         .lineTo(0, 600) //draw raycast path
         .stroke({width : 3, color : 'red'});
     player.addChild(rayCastLine);
-    rayCastLine.rotation =  -1.5;
+    rayCastLine.rotation =  -Math.PI/2;
 
-    const viewConeTex = app.renderer.generateTexture({target: viewCone});
-    const viewConeSprite = Sprite.from(viewConeTex);
-    darkOverlay.setMask({
-        mask: viewConeSprite,
-        inverse : true
+    //this is better for static textures, that don't get updated often; 
+    //app.renderer.generateTexture({target: viewConeGraphics});
+    //the texture where viewCone will be rendered on, needs to be bigger than the cone
+    const vConeTexScale = 10;
+    var viewConeTex = RenderTexture.create({
+        width: app.screen.width * vConeTexScale, 
+        height: app.screen.height * vConeTexScale,
+        resolution : 0.034
     });
-    bg.setMask({
-        mask: viewConeSprite,
-        inverse : false
-    })
+    //viewConeTex.defaultAnchor = {x:0.5, y:0.5};
+    const vConeTexMid = new Vector2(viewConeTex.width/2, viewConeTex.height/2);
+    var viewConeGraphics = new Graphics();
+    var playerViewCone = Sprite.from(viewConeTex, true);
+    function drawViewCone(_visionRange, _fov){
+        let fovRad = _fov * (Math.PI/180);
+        viewConeGraphics
+            .clear()
+            .arc(vConeTexMid.x, vConeTexMid.y, _visionRange, 0, fovRad, false)
+            .lineTo(vConeTexMid.x, vConeTexMid.y)
+            .stroke({width : 50, alpha : 0}).fill({alpha : 1});
+        viewConeGraphics.filters = [new BlurFilter({ 
+            strength: 75 ,
+            quality: 12, //resolution, //kernelSize : 9 
+        })];
+        app.renderer.render(viewConeGraphics, { renderTexture: viewConeTex });
+        darkOverlay.setMask({
+            mask: playerViewCone,
+            inverse : true
+        });
+        bg.setMask({
+            mask: playerViewCone,
+            inverse : false
+        })
+        playerViewCone.anchor.set(0.5,0.5);
+        playerViewCone.rotation = -fovRad/2;
+        playerViewCone.label = 'viewCone';
+    }
+    player.addChild(playerViewCone);
+    player.scale.set(0.4, 0.4);
 
-    player.addChild(viewConeSprite);
-    viewConeSprite.position.x = -40;
-    viewConeSprite.position.y = 15;
-    viewConeSprite.rotation = -1.5;
-    viewConeSprite.anchor.set(0.5, 0);
-
+    
+    
     function rotatePlayer(ev){
         mouseUIPos = new Vector2(ev.x, ev.y);
         let mp = ev.getLocalPosition(app.stage);
         mousePos = new Vector2(mp.x, mp.y);
         viewDir = mousePos.subtract(playerPos).normalized();
         let rotDir = Math.atan2(viewDir.x, viewDir.y);
-        player.rotation = -rotDir + 1.5;
+        player.rotation = -rotDir + Math.PI/2;
     }
     function movePlayer(_moveAccel){
         player.position.x += _moveAccel.x;
@@ -121,14 +136,19 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         app.stage.position.x -= _moveAccel.x //+ lookMult.x;
         app.stage.position.y -= _moveAccel.y //+ lookMult.y;
     }
-    // function lookOffset(_lookFactor){
-    //     return viewDir.normalized().scale(_lookFactor);
-    // }
+    //For Movements
+    var wishDir=new Vector2(0,0),moveDir=new Vector2(0,0),moveAccel=new Vector2(0,0);
+    var fwdSpdMult = 1.2, bckSpdMult = 0.7;
+    var moveSpd = 5;
+    //For Vision
+    var ads = false
+    const defaultFov = 90;
+    const defaultViewRange = 1000;
+    const aimFov = 30;
+    const aimViewRange = 1500;
+    var curFov = defaultFov;
+    var curViewRange = defaultViewRange;
     
-    var wishDir = new Vector2(0,0);
-    var moveDir = new Vector2(0,0);
-    var moveAccel = new Vector2(0,0);
-
     //DEBUG
     var text = new Text({ text : `${viewDir.dot(moveDir)}, ${mousePos}, ${playerPos}`})
     app.stage.addChildAt(text, 1);
@@ -161,27 +181,37 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         moveAccel = Vector2.lerp(moveAccel, wishDir, DeltaTime * 7);
         
         //player moves faster forward, slower backwards
-        let fwdSpdMult = 1.2
-        let bckSpdMult = 0.7
         let dirSpdMult = clamp(viewDir.dot(moveDir) + 1, bckSpdMult, fwdSpdMult);
-        let moveSpd = 5;
-        text.text = `${Math.round(mousePos.x)}:${Math.round(mousePos.y)}, ${Math.round(viewDir.x)}:${Math.round(viewDir.y)}`;//DEBUG
+        
         let playerAccel = moveAccel.scale(dirSpdMult * moveSpd);
+        text.text = `${Math.round(playerAccel.x)}:${Math.round(playerAccel.y)}, ${Math.round(viewDir.x)}:${Math.round(viewDir.y)}`;//DEBUG
+        
         movePlayer(playerAccel);
         moveCamera(playerAccel, DeltaTime, 20);
+        if(ads){
+            curViewRange = lerp(curViewRange, aimViewRange, DeltaTime*5);
+            curFov = lerp(curFov, aimFov, DeltaTime*5);
+        }else{
+            curViewRange = lerp(curViewRange, defaultViewRange, DeltaTime*5);
+            curFov = lerp(curFov, defaultFov, DeltaTime*5);
+        }
+        drawViewCone(curViewRange, curFov);
     });
-
     document.addEventListener('keydown', (ev)=>{
-        if(ev.key === ('a'||'A')) a = true; //moveDir.x -= -1;
-        if(ev.key === ('d'||'D')) d = true; //moveDir.x += 1;
-        if(ev.key === ('w'||'W')) w = true; //moveDir.y -= 1;
-        if(ev.key === ('s'||'S')) s = true; //moveDir.y += 1;
+        if(ev.key === ('a'||'A')) a = true; 
+        if(ev.key === ('d'||'D')) d = true; 
+        if(ev.key === ('w'||'W')) w = true; 
+        if(ev.key === ('s'||'S')) s = true; 
     });
     document.addEventListener('keyup', (ev)=>{
-        if(ev.key === ('a'||'A')) a = false; //moveDir.x += -1;
-        if(ev.key === ('d'||'D')) d = false; //moveDir.x -= 1;
-        if(ev.key === ('w'||'W')) w = false; //moveDir.y += 1;
-        if(ev.key === ('s'||'S')) s = false; //moveDir.y -= 1;
+        if(ev.key === ('a'||'A')) a = false;
+        if(ev.key === ('d'||'D')) d = false;
+        if(ev.key === ('w'||'W')) w = false;
+        if(ev.key === ('s'||'S')) s = false;
+    });
+    document.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault(); //prevents rightClick menu
+        ads  = !ads;
     });
 
     //Add to Stage

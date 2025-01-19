@@ -1,5 +1,5 @@
-import Vector2 from "./Vector2";
-import { getMinMax } from "./Misc";
+import Vector2 from "./Vector2.js";
+import { getMinMax } from "./Misc.js";
 /**
 * @param {Vector2[]} polygonA 
 * @param {Vector2[]} polygonB
@@ -10,10 +10,12 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
     let normalsA = getEdgeNormals(polygonA);
     let normalsB = getEdgeNormals(polygonB);
     let normals = normalsA.concat(normalsB);
+    //console.log(polygonA);
     //filter out duplicate normals
     normals = normals.filter((item, index)=>normals.indexOf(item)===index);
-    
-    let smallestNorm
+    //console.log(normals);
+    //let collide = true;
+    let smallestNorm = Vector2.zero;
     let smallestO = Infinity;
     //project each vertex to the normal
     for(const norm of normals){
@@ -22,6 +24,8 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
         //find min and max
         let a = getMinMax(projsA);
         let b = getMinMax(projsB);
+        //console.log(a, b)
+
         //calc if these proj are overlapping
         let noOverlap = 
             (a.min < b.min && a.max < b.min) ||
@@ -40,6 +44,7 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
         let omin = scndL.min;
         let omax = frstL.max > scndL.max ? scndL.max : frstL.max;
         let oLength = omax - omin;
+        
         if(oLength < smallestO) {
             smallestO = oLength;
             smallestNorm = norm;
@@ -47,6 +52,7 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
     }
     //min Translation Vector
     let mtv = smallestNorm.scale(smallestO);
+    console.log(mtv);
     return new collisionInfo(true, mtv);
 }
 class collisionInfo{
@@ -65,9 +71,10 @@ function getProjections(polygon, norm){
 }
 function getEdgeNormals(polygon){
     let normals = [];
-    for(let i = 0; i < polygon.length; i++){
+    for(let i = 0; i < polygon.length-1 ; i++){
         let vertA = polygon[i];
-        let vertB = i === polygon.length-1 ? polygon[i+1] : polygon[0];
+        let vertB = i === polygon.length-1 ? polygon[0] : polygon[i+1];
+        //console.log(vertB);
         let direction = unitVector(vertA, vertB);
         normals.push(perpendicularVector(direction));
     }
@@ -79,7 +86,11 @@ function getEdgeNormals(polygon){
 * @param {Vector2} vertB
 **/
 function unitVector(vertA, vertB){ //using v_a as origin find direction to v_b
-    let dir = vertB.subtract(vertA);
+    let x  = vertB.x - vertA.x;
+    let y = vertB.y - vertA.y;
+    //console.log(vertA, vertB);
+    let dir = new Vector2(x, y);
+    //console.log(dir)
     return dir.normalized();
 }
 

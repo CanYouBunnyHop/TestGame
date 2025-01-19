@@ -7,10 +7,13 @@ export function clamp(num, min, max) {
 }
 
 export function getMinMax(_arr){
-    return _arr.reduce((pair, cur)=>{
-        if(cur < pair.min) pair.min = cur;
-        if(cur > pair.max) pair.max = cur;
-    }, new minMaxPair(_arr[0], _arr[0]));
+    var min = _arr[0];
+    var max = _arr[0];
+    _arr.reduce((pair, cur)=>{
+        if(cur < min)min = cur;
+        if(cur > max)max = cur;
+    });
+    return new minMaxPair(min, max);
 }
 export class minMaxPair{
     constructor(_min, _max) {this.min = _min; this.max = _max;}

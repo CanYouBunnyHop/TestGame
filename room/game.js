@@ -2,12 +2,17 @@ import {
     Application, Graphics, 
     Text, TextStyle, Sprite, Assets, 
     Ticker, 
-    BlurFilter, Container, AlphaFilter, AlphaMask, Texture, RenderTexture
+    BlurFilter, Container, AlphaFilter, AlphaMask, Texture, RenderTexture,
+    Geometry, Mesh, Shader, Point
 } from "../pixi.mjs";
 import Vector2 from "../modules/Vector2.js";
 import Tween, { lerp } from "../modules/Tween.js";
 import { isCloseEnough , clamp} from "../modules/Misc.js";
+import { satCollision } from "../modules/SATCollision.js";
 //import { satCollision } from "../modules/SATCollision.js";
+
+
+
 (async ()=>{
     const app = new Application();
     await app.init({
@@ -35,16 +40,23 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     const bg = new Container()
     bg.addChild(bgSprite);
     bg.scale.set(2,2);
+
+
     //for testing view blocking
     const staticColliders = new Container();
     bg.addChild(staticColliders);
 
-    //#region //USE GEOMETRY INSTEAD
-    const box = new Graphics().rect(0, 0, 100, 100).fill();
+    const boxPoints = [
+        new Point(0,0), 
+        new Point(0,100), 
+        new Point(100,100), 
+        new Point(100,0),
+    ];
+    const box = new Graphics().poly(boxPoints, true).fill();
     box.position.set(100, 200);
+    
     box.rotation = Math.PI/4;
     staticColliders.addChild(box);
-    console.log(await box.geometry);
     //#endregion
 
     //#region DarkOverlay
@@ -66,21 +78,34 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     //#endregion
     
     //#region Player Sprite
-    async function addPlayer(){
+    async function addPlayerSprite(){
         const texture = await Assets.load('../public/images/survivor-idle_shotgun_0.png');
-        const sprite = Sprite.from(texture); // new Sprite(texture)
-        //const offset = new Vector2(app.screen.width/2, app.screen.height/2);
-        //sprite.position.set(offset.x, offset.y); //set to middle of screen
+        const sprite = Sprite.from(texture);
         sprite.anchor.set(0.5, 0.5);
         sprite.scale.set(1, 1);
         sprite.eventMode = 'static';
         sprite.on('globalpointermove', rotatePlayer);
         return sprite;
     }
-    const playerSprite  = await addPlayer();
+    const playerPoints = [
+        new Point(-100, -100),
+        new Point(100, -100),
+        new Point(100, 100),
+        new Point(-100, 100) 
+    ]
+    function addPlayerCollider(){
+        const graphics = new Graphics()
+            .poly(playerPoints)
+            .stroke({width : 3, color : 'red'});
+        return graphics;
+    }
+
+    //create player 
     const player = new Container();
     player.label = 'player'
-    player.addChild(playerSprite);
+    const playerSprite  = await addPlayerSprite();
+    const playerCollider = addPlayerCollider();
+    player.addChild(playerSprite, playerCollider);
     const offset = new Vector2(app.screen.width/2, app.screen.height/2);
     player.position.set(offset.x, offset.y);
     //#endregion
@@ -153,6 +178,7 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         app.stage.pivot.x = lerp(app.stage.pivot.x, dir.x * _lookDist* 9 * ratio.x, _deltaTime);
         app.stage.pivot.y = lerp(app.stage.pivot.y, dir.y * _lookDist* 16 * ratio.y, _deltaTime);
 
+        //app.stage.position -= player.position.x
         app.stage.position.x -= _moveAccel.x //+ lookMult.x;
         app.stage.position.y -= _moveAccel.y //+ lookMult.y;
     }
@@ -180,11 +206,6 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     var tarFov = defaultFov;
     //#endregion
 
-    //DEBUG
-    // var text = new Text({ text : `${viewDir.dot(moveDir)}, ${mousePos}, ${playerPos}`})
-    // app.stage.addChildAt(text, 1);
-    // text.position.set(300,100);
-
     //#region Inputs
     let a = false, d = false, w = false, s = false;
     document.addEventListener('keydown', (ev)=>{
@@ -207,9 +228,9 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     //#endregion
 
     //#region PhysicsTicker
+    //TEST
     const PhysicsTicker = new Ticker();
     PhysicsTicker.autoStart = true;
-    //this ticker ticks 25 times a second
     PhysicsTicker.maxFPS = 25; PhysicsTicker.minFPS = 25;
     PhysicsTicker.add((time)=>{
         const DeltaTime = (time.elapsedMS/1000);
@@ -219,16 +240,43 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         moveAccel.x = lerp(moveAccel.x, wishDir.x, DeltaTime * accelRateX);
         moveAccel.y = lerp(moveAccel.y, wishDir.y, DeltaTime * accelRateY);
         dirSpdMult = clamp(viewDir.dot(wishDir) + 1, bckSpdMult, fwdSpdMult);
-        playerAccel = moveAccel.scale(dirSpdMult * moveSpd);
         
         //player view
         tarViewRange = ads ? aimViewRange : defaultViewRange;
         tarFov = ads ? aimFov : defaultFov;
-        //console.log('fixed');
-
+        
         //when box collides with player change color?
-        //console.log(box);
+
+        
+        var boxVertexPos = [];
+        boxPoints.forEach(p => {
+            let gpos = box.toGlobal(p)
+            boxVertexPos.push(pointToVector2(gpos))
+        });
+        //console.log(boxVertexPos);
+        var playerVertexPos = [];
+        
+        playerPoints.forEach(p => {
+            let gpos = player.toGlobal(p)
+            playerVertexPos.push(pointToVector2(gpos))
+        });
+        
+        let collisionResult = satCollision(playerVertexPos, boxVertexPos);
+        let hit = collisionResult.hit;
+        let mtv = collisionResult.mtv;
+        if(hit){ 
+            //pushes player back out
+            player.position.x += mtv.x
+            player.position.y += mtv.y
+            //camera still centers on player
+            app.stage.position.x -= mtv.x
+            app.stage.position.y -= mtv.y
+        }
+        playerAccel = moveAccel.scale(dirSpdMult * moveSpd);
     })
+    function pointToVector2(_p){
+        return new Vector2(_p.x, _p.y);
+    }
     //#endregion
 
     //#region Update Loop
@@ -247,7 +295,7 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
         else wishDir.y = 0;
 
         wishDir = wishDir.normalized();
-        
+        //console.log(playerAccel);
         movePlayer(playerAccel);
         moveCamera(playerAccel, DeltaTime, lookDist);
 
@@ -260,9 +308,6 @@ import { isCloseEnough , clamp} from "../modules/Misc.js";
     //#endregion
     drawViewCone(curViewRange, curFov);
     
-
-    
-
     //Add to Stage
     bg.label = 'bg';
     darkOverlay.label = 'darkOverlay';

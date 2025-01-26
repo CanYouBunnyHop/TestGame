@@ -5,92 +5,67 @@ import { getMinMax } from "./Misc.js";
 * @param {Vector2[]} polygonB
 **/
 export function satCollision(polygonA, polygonB){ //array of vertices of 2 object 
-    //find perpendiculars of polygonA and polygonB 
-    //if one projection is not colliding, then they are not colliding
-    let normalsA = getEdgeNormals(polygonA);
-    let normalsB = getEdgeNormals(polygonB);
-    let normals = normalsA.concat(normalsB);
-    //console.log(polygonA);
-    //filter out duplicate normals
-    normals = normals.filter((item, index)=>normals.indexOf(item)===index);
-    //console.log(normals);
-    //let collide = true;
-    let smallestNorm = Vector2.zero;
-    let smallestO = Infinity;
-    //project each vertex to the normal
-    for(const norm of normals){
-        let projsA = getProjections(polygonA, norm);
-        let projsB = getProjections(polygonB, norm);
-        //find min and max
-        let a = getMinMax(projsA);
-        let b = getMinMax(projsB);
-        //console.log(a, b)
+    let mtv = new Vector2(0,0);
+    let minOverlap = Infinity;
+    const polygons = [polygonA, polygonB];
+    
+    //filter out duplicate axes ? for optimization
+    
+    for (let p = 0; p < 2; p++){
+        const vertices = polygons[p]; 
+        for (let i = 0; i < vertices.length; i++){
+            const current = vertices[i];
+            const next = i !== vertices.length-1 ? vertices[i + 1] : vertices[0];
+            // Calculate the edge vector and its perpendicular (normal)
+            const edge = next.subtract(current);
+            const axis = perpendicularVector(edge.normalized());
+            // Project both polygons onto the axis
+            const a = getProjection(polygonA, axis);
+            const b = getProjection(polygonB, axis);
 
-        //calc if these proj are overlapping
-        let noOverlap = 
-            (a.min < b.min && a.max < b.min) ||
-            (b.min < a.min && b.max < a.min);
-        if(noOverlap) return new collisionInfo(false, Vector2.zero);
-        //to determine minimum translation vector
-        //find smallest overlapping section
-        //get the current normal
-        //mtv direction = currentNormal
-        //mtv magnitude = overlap
-
-        //GET OVERLAP
-        //determin first line and second line
-        let frstL = a.min <= b.min ? a : b;
-        let scndL = a.min <= b.min ? b : a;
-        let omin = scndL.min;
-        let omax = frstL.max > scndL.max ? scndL.max : frstL.max;
-        let oLength = omax - omin;
-        
-        if(oLength < smallestO) {
-            smallestO = oLength;
-            smallestNorm = norm;
+            const overlap = Math.min(a.max, b.max) - Math.max(a.min, b.min);
+            console.log(overlap, 'overlap');
+            if(overlap <= 0){
+                return new collisionInfo(false, new Vector2(0,0));
+            }
+                
+            if (overlap < minOverlap) {
+                minOverlap = overlap;
+                const direction = axis.dot(current.subtract(next)) < 0 ? 
+                    axis : new Vector2(-axis.x, -axis.y);
+                mtv = new Vector2(direction.x * overlap, direction.y * overlap);
+            }
         }
     }
-    //min Translation Vector
-    let mtv = smallestNorm.scale(smallestO);
-    console.log(mtv);
     return new collisionInfo(true, mtv);
 }
 class collisionInfo{
-    constructor(_hit, _mtv ,_collisionPoints){
+    constructor(_hit, _mtv){
         this.hit = _hit;
         this.mtv = _mtv;
-        this.collisionPoints = _collisionPoints;
+        //this.collisionPoints = _collisionPoints;
     }
 }
-function getProjections(polygon, norm){
-    let projections = []
-    polygon.forEach(vert=>{
-        projections.push(vert.dot(norm));
-    });
-    return projections;
-}
-function getEdgeNormals(polygon){
-    let normals = [];
-    for(let i = 0; i < polygon.length-1 ; i++){
-        let vertA = polygon[i];
-        let vertB = i === polygon.length-1 ? polygon[0] : polygon[i+1];
-        //console.log(vertB);
-        let direction = unitVector(vertA, vertB);
-        normals.push(perpendicularVector(direction));
+function getProjection(vertices, axis){
+    let min = vertices[0].dot(axis);
+    let max = min;
+    for(let i = 1; i < vertices.length; i++){
+        const projection = vertices[i].dot(axis);
+        min = Math.min(min, projection);
+        max = Math.max(max, projection);
     }
-    return normals;
+    return {min, max};
 }
-
 /**
 * @param {Vector2} vertA 
 * @param {Vector2} vertB
 **/
 function unitVector(vertA, vertB){ //using v_a as origin find direction to v_b
     let x  = vertB.x - vertA.x;
-    let y = vertB.y - vertA.y;
+    let y =  vertB.y - vertA.y;
     //console.log(vertA, vertB);
     let dir = new Vector2(x, y);
-    //console.log(dir)
+    
     return dir.normalized();
 }
 

@@ -9,9 +9,10 @@ export function clamp(num, min, max) {
 export function getMinMax(_arr){
     var min = _arr[0];
     var max = _arr[0];
-    _arr.reduce((pair, cur)=>{
-        if(cur < min)min = cur;
-        if(cur > max)max = cur;
+
+    _arr.forEach(number => {
+        if(number < min)min = number;
+        if(number > max)max = number;
     });
     return new minMaxPair(min, max);
 }

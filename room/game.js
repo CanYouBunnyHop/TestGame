@@ -9,9 +9,8 @@ import Vector2 from "../modules/Vector2.js";
 import Tween, { lerp } from "../modules/Tween.js";
 import { isCloseEnough , clamp} from "../modules/Misc.js";
 import { satCollision } from "../modules/SATCollision.js";
-//import { satCollision } from "../modules/SATCollision.js";
-
-
+import physicsTicker from "./physics.js";
+import player, {playerPoints} from "./player.js";
 
 (async ()=>{
     const app = new Application();
@@ -74,47 +73,18 @@ import { satCollision } from "../modules/SATCollision.js";
     darkOverlay.tint = '2c2e39';
     darkOverlay.alpha = 0.5;
     darkOverlay.label = 'darkOverlay'
-    //const darkOverlay = new Container().addChild(darkOverlaySpr);
     //#endregion
     
-    //#region Player Sprite
-    async function addPlayerSprite(){
-        const texture = await Assets.load('../public/images/survivor-idle_shotgun_0.png');
-        const sprite = Sprite.from(texture);
-        sprite.anchor.set(0.5, 0.5);
-        sprite.scale.set(1, 1);
-        sprite.eventMode = 'static';
-        sprite.on('globalpointermove', rotatePlayer);
-        return sprite;
-    }
-    const playerPoints = [
-        new Point(-100, -100),
-        new Point(100, -100),
-        new Point(100, 100),
-        new Point(-100, 100) 
-    ]
-    function addPlayerCollider(){
-        const graphics = new Graphics()
-            .poly(playerPoints)
-            .stroke({width : 3, color : 'red'});
-        return graphics;
-    }
-
-    //create player 
-    const player = new Container();
-    player.label = 'player'
-    const playerSprite  = await addPlayerSprite();
-    const playerCollider = addPlayerCollider();
-    player.addChild(playerSprite, playerCollider);
-    const offset = new Vector2(app.screen.width/2, app.screen.height/2);
-    player.position.set(offset.x, offset.y);
-    //#endregion
-
-    const rayCastLine = new Graphics()
-        .lineTo(0, 600) //draw raycast path
-        .stroke({width : 3, color : 'red'});
-    player.addChild(rayCastLine);
-    rayCastLine.rotation =  -Math.PI/2;
+    //#region Player
+    //set player starting pos, 
+    // need to account for screen and world pos
+    player.position.x = app.screen.width/2;
+    player.position.y = app.screen.height/2;
+    player.eventMode = 'static';
+    player.on('globalpointermove', rotatePlayer);
+    player.scale.set(0.4, 0.4);
+    //player.on('mousemove', rotatePlayer);
+    
 
     //this is better for static textures, that don't get updated often; 
     //app.renderer.generateTexture({target: viewConeGraphics});
@@ -125,7 +95,6 @@ import { satCollision } from "../modules/SATCollision.js";
         height: app.screen.height * vConeTexScale,
         resolution : 0.034
     });
-    //viewConeTex.defaultAnchor = {x:0.5, y:0.5};
     const vConeTexMid = new Vector2(viewConeTex.width/2, viewConeTex.height/2);
     var viewConeGraphics = new Graphics();
     var playerViewCone = Sprite.from(viewConeTex, true);
@@ -154,8 +123,7 @@ import { satCollision } from "../modules/SATCollision.js";
         playerViewCone.label = 'viewCone';
     }
     player.addChild(playerViewCone);
-    player.scale.set(0.4, 0.4);
-
+   
     function rotatePlayer(ev){
         mouseUIPos = new Vector2(ev.x, ev.y);
         let mp = ev.getLocalPosition(app.stage);
@@ -168,29 +136,34 @@ import { satCollision } from "../modules/SATCollision.js";
         player.position.x += _moveAccel.x;
         player.position.y += _moveAccel.y;
     }
+    //#endregion
     function moveCamera(_moveAccel, _deltaTime, _lookDist){
         const screenMid = new Vector2(app.screen.width/2, app.screen.height/2);
         let displacement = mouseUIPos.subtract(screenMid);
         let dir = displacement.normalized();
         let ratio = new Vector2(Math.abs(displacement.x)/screenMid.x, Math.abs(displacement.y)/screenMid.y);
         if(ratio > 1) ratio = 1;    //clamp ratio
-    
-        app.stage.pivot.x = lerp(app.stage.pivot.x, dir.x * _lookDist* 9 * ratio.x, _deltaTime);
-        app.stage.pivot.y = lerp(app.stage.pivot.y, dir.y * _lookDist* 16 * ratio.y, _deltaTime);
-
-        //app.stage.position -= player.position.x
+        let lookPosX = dir.x * _lookDist* 9 * ratio.x;
+        let lookPosY = dir.y * _lookDist* 16 * ratio.y;
+        app.stage.pivot.x = lerp(app.stage.pivot.x, lookPosX, _deltaTime);
+        app.stage.pivot.y = lerp(app.stage.pivot.y, lookPosY, _deltaTime);
+        if(isCloseEnough(app.stage.pivot.x, lookPosX, 0.01))
+            app.stage.pivot.x = lookPosX;
+        if(isCloseEnough(app.stage.pivot.y, lookPosY, 0.01))
+            app.stage.pivot.y = lookPosY;
         app.stage.position.x -= _moveAccel.x //+ lookMult.x;
         app.stage.position.y -= _moveAccel.y //+ lookMult.y;
     }
     //#region Physics/Game Variables
     //For Movements
-    var wishDir=new Vector2(0,0),moveDir=new Vector2(0,0),moveAccel=new Vector2(0,0);
+    var wishDir=new Vector2(0,0);
     var fwdSpdMult = 1.2, bckSpdMult = 0.7;
     const moveSpd = 5;
     const friction = 4.5;
     const accelSpd = 7;
     var dirSpdMult = 1;
-    var playerAccel = Vector2.zero;
+    var playerMoveAccel = new Vector2(0,0);
+    
 
     //For Vision
     var ads = false
@@ -229,25 +202,29 @@ import { satCollision } from "../modules/SATCollision.js";
 
     //#region PhysicsTicker
     //TEST
-    const PhysicsTicker = new Ticker();
-    PhysicsTicker.autoStart = true;
-    PhysicsTicker.maxFPS = 25; PhysicsTicker.minFPS = 25;
-    PhysicsTicker.add((time)=>{
+    physicsTicker.add((time)=>{
         const DeltaTime = (time.elapsedMS/1000);
+
         //player accel
+        dirSpdMult = clamp(viewDir.dot(wishDir) + 1, bckSpdMult, fwdSpdMult);
+        let wishAccel = wishDir.scale(1 * moveSpd);
+        
         var accelRateX = wishDir.x === 0 ? friction : accelSpd;
         var accelRateY = wishDir.y === 0 ? friction : accelSpd; 
-        moveAccel.x = lerp(moveAccel.x, wishDir.x, DeltaTime * accelRateX);
-        moveAccel.y = lerp(moveAccel.y, wishDir.y, DeltaTime * accelRateY);
-        dirSpdMult = clamp(viewDir.dot(wishDir) + 1, bckSpdMult, fwdSpdMult);
+        playerMoveAccel.x = lerp(playerMoveAccel.x, wishAccel.x, DeltaTime * accelRateX);
+        playerMoveAccel.y = lerp(playerMoveAccel.y, wishAccel.y, DeltaTime * accelRateY);
+        if(isCloseEnough(playerMoveAccel.x, wishAccel.x, 0.01))
+            playerMoveAccel.x = wishAccel.x;
+        if(isCloseEnough(playerMoveAccel.y, wishAccel.y, 0.01))
+            playerMoveAccel.y = wishAccel.y;
+        
         
         //player view
         tarViewRange = ads ? aimViewRange : defaultViewRange;
         tarFov = ads ? aimFov : defaultFov;
-        
-        //when box collides with player change color?
 
-        
+        //TESTING COLLISION
+        //when box collides with player change color?
         var boxVertexPos = [];
         boxPoints.forEach(p => {
             let gpos = box.toGlobal(p)
@@ -255,7 +232,6 @@ import { satCollision } from "../modules/SATCollision.js";
         });
         //console.log(boxVertexPos);
         var playerVertexPos = [];
-        
         playerPoints.forEach(p => {
             let gpos = player.toGlobal(p)
             playerVertexPos.push(pointToVector2(gpos))
@@ -264,6 +240,7 @@ import { satCollision } from "../modules/SATCollision.js";
         let collisionResult = satCollision(playerVertexPos, boxVertexPos);
         let hit = collisionResult.hit;
         let mtv = collisionResult.mtv;
+        let mtvDir = mtv.normalized();
         if(hit){ 
             //pushes player back out
             player.position.x += mtv.x
@@ -272,7 +249,13 @@ import { satCollision } from "../modules/SATCollision.js";
             app.stage.position.x -= mtv.x
             app.stage.position.y -= mtv.y
         }
-        playerAccel = moveAccel.scale(dirSpdMult * moveSpd);
+        
+        //playerTotalAccel = playerMoveAccel ; //slows down with dot product of playermoveaccel and mtv?
+        
+        // let hitNormal =playerMoveAccel.normalized().dot(mtvDir);
+        // let oppForce = playerMoveAccel.scale(hitNormal);
+        // playerMoveAccel = playerMoveAccel.add(oppForce);
+        console.log(hit, mtv);
     })
     function pointToVector2(_p){
         return new Vector2(_p.x, _p.y);
@@ -281,8 +264,6 @@ import { satCollision } from "../modules/SATCollision.js";
 
     //#region Update Loop
     app.ticker.add((time) => {
-        //console.log('update');
-
         playerPos = new Vector2(player.position.x, player.position.y);
         const DeltaTime = (time.elapsedMS/1000);
         
@@ -295,15 +276,17 @@ import { satCollision } from "../modules/SATCollision.js";
         else wishDir.y = 0;
 
         wishDir = wishDir.normalized();
-        //console.log(playerAccel);
-        movePlayer(playerAccel);
-        moveCamera(playerAccel, DeltaTime, lookDist);
+        movePlayer(playerMoveAccel);
+        moveCamera(playerMoveAccel, DeltaTime, lookDist);
 
         //Can use tween maybe
         curViewRange = lerp(curViewRange, tarViewRange, DeltaTime*aimSpd);
         curFov = lerp(curFov, tarFov, DeltaTime*aimSpd);
-        if(!isCloseEnough(curFov, tarFov, 0.01) && !isCloseEnough(curViewRange, tarViewRange, 0.01))
-            drawViewCone(curViewRange, curFov);
+        if(isCloseEnough(curViewRange, tarViewRange, 0.01))
+            curViewRange = tarViewRange;
+        if(isCloseEnough(curFov, tarFov, 0.01))
+            curFov = tarFov;
+        drawViewCone(curViewRange, curFov);
     });
     //#endregion
     drawViewCone(curViewRange, curFov);

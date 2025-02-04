@@ -15,5 +15,13 @@ export default class Vector2 {
         let y = _start.y + _amt * (_end.y - _start.y);
         return new Vector2(x,y);
     }
+    magnitude(){
+        let x = Math.pow(this.x, 2);
+        let y = Math.pow(this.y, 2);
+        return Math.sqrt(x + y);
+    }
+    negate(){
+        return new Vector2(-this.x, -this.y);
+    }
     static zero = new Vector2(0,0);
 }

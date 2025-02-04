@@ -1,5 +1,4 @@
 import Vector2 from "./Vector2.js";
-import { getMinMax } from "./Misc.js";
 /**
 * @param {Vector2[]} polygonA 
 * @param {Vector2[]} polygonB
@@ -8,9 +7,8 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
     let mtv = new Vector2(0,0);
     let minOverlap = Infinity;
     const polygons = [polygonA, polygonB];
-    
+    let isColliding = true;
     //filter out duplicate axes ? for optimization
-    
     for (let p = 0; p < 2; p++){
         const vertices = polygons[p]; 
         for (let i = 0; i < vertices.length; i++){
@@ -18,32 +16,38 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
             const next = i !== vertices.length-1 ? vertices[i + 1] : vertices[0];
             // Calculate the edge vector and its perpendicular (normal)
             const edge = next.subtract(current);
-            const axis = perpendicularVector(edge.normalized());
+            const axis = getNormal(edge).normalized();
             // Project both polygons onto the axis
             const a = getProjection(polygonA, axis);
             const b = getProjection(polygonB, axis);
 
-            const overlap = Math.min(a.max, b.max) - Math.max(a.min, b.min);
-            console.log(overlap, 'overlap');
+            let smallerMax = Math.min(a.max, b.max);
+            let largerMin = Math.max(a.min, b.min);
+            let overlap = smallerMax - largerMin;
+
             if(overlap <= 0){
-                return new collisionInfo(false, new Vector2(0,0));
+                //return new collisionInfo(false, new Vector2(0,0));
+                isColliding = false;
+                break;
             }
-                
+            
             if (overlap < minOverlap) {
                 minOverlap = overlap;
-                const direction = axis.dot(current.subtract(next)) < 0 ? 
-                    axis : new Vector2(-axis.x, -axis.y);
-                mtv = new Vector2(direction.x * overlap, direction.y * overlap);
+                const projectionCenterA = (a.min + a.max) / 2;
+                const projectionCenterB = (b.min + b.max) / 2;
+                const direction = projectionCenterB < projectionCenterA ?  axis : axis.negate();
+                mtv = direction.scale(minOverlap);
             }
         }
     }
-    return new collisionInfo(true, mtv);
+    
+    if(!isColliding) mtv = new Vector2(0,0);
+    return new collisionInfo(isColliding, mtv);
 }
 class collisionInfo{
     constructor(_hit, _mtv){
         this.hit = _hit;
         this.mtv = _mtv;
-        //this.collisionPoints = _collisionPoints;
     }
 }
 function getProjection(vertices, axis){
@@ -70,6 +74,6 @@ function unitVector(vertA, vertB){ //using v_a as origin find direction to v_b
 }
 
 /** @param {Vector2} v */ 
-function perpendicularVector(v){ //the current edge, 2 vetices //edge normal
+function getNormal(v){ //the current edge, 2 vetices //edge normal
     return new Vector2(v.y, -v.x) //x=y, y=-x 
 }

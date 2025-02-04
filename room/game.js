@@ -10,7 +10,8 @@ import Tween, { lerp } from "../modules/Tween.js";
 import { isCloseEnough , clamp} from "../modules/Misc.js";
 import { satCollision } from "../modules/SATCollision.js";
 import physicsTicker from "./physics.js";
-import player, {playerPoints} from "./player.js";
+import player, {playerCollider} from "./player.js";
+import pixiCollider from "./pixiCollider.js";
 
 (async ()=>{
     const app = new Application();
@@ -45,16 +46,11 @@ import player, {playerPoints} from "./player.js";
     const staticColliders = new Container();
     bg.addChild(staticColliders);
 
-    const boxPoints = [
-        new Point(0,0), 
-        new Point(0,100), 
-        new Point(100,100), 
-        new Point(100,0),
-    ];
-    const box = new Graphics().poly(boxPoints, true).fill();
+    const boxCollider = pixiCollider.createRectCollider(0,0, 100, 100);
+    const box = new Graphics(boxCollider.graphicsCtx).fill();
     box.position.set(100, 200);
     
-    box.rotation = Math.PI/4;
+    box.rotation = Math.PI/6;
     staticColliders.addChild(box);
     //#endregion
 
@@ -83,7 +79,8 @@ import player, {playerPoints} from "./player.js";
     player.eventMode = 'static';
     player.on('globalpointermove', rotatePlayer);
     player.scale.set(0.4, 0.4);
-    //player.on('mousemove', rotatePlayer);
+    
+    
     
 
     //this is better for static textures, that don't get updated often; 
@@ -204,35 +201,29 @@ import player, {playerPoints} from "./player.js";
     //TEST
     physicsTicker.add((time)=>{
         const DeltaTime = (time.elapsedMS/1000);
-
         //player accel
         dirSpdMult = clamp(viewDir.dot(wishDir) + 1, bckSpdMult, fwdSpdMult);
-        let wishAccel = wishDir.scale(1 * moveSpd);
+        let wishAccel = wishDir.scale(moveSpd * dirSpdMult);
         
         var accelRateX = wishDir.x === 0 ? friction : accelSpd;
         var accelRateY = wishDir.y === 0 ? friction : accelSpd; 
+        
         playerMoveAccel.x = lerp(playerMoveAccel.x, wishAccel.x, DeltaTime * accelRateX);
         playerMoveAccel.y = lerp(playerMoveAccel.y, wishAccel.y, DeltaTime * accelRateY);
+        
         if(isCloseEnough(playerMoveAccel.x, wishAccel.x, 0.01))
-            playerMoveAccel.x = wishAccel.x;
+             playerMoveAccel.x = wishAccel.x;
         if(isCloseEnough(playerMoveAccel.y, wishAccel.y, 0.01))
-            playerMoveAccel.y = wishAccel.y;
-        
-        
-        //player view
-        tarViewRange = ads ? aimViewRange : defaultViewRange;
-        tarFov = ads ? aimFov : defaultFov;
-
+             playerMoveAccel.y = wishAccel.y;
         //TESTING COLLISION
-        //when box collides with player change color?
         var boxVertexPos = [];
-        boxPoints.forEach(p => {
+        boxCollider.points.forEach(p => {
             let gpos = box.toGlobal(p)
             boxVertexPos.push(pointToVector2(gpos))
         });
         //console.log(boxVertexPos);
         var playerVertexPos = [];
-        playerPoints.forEach(p => {
+        playerCollider.points.forEach(p => {
             let gpos = player.toGlobal(p)
             playerVertexPos.push(pointToVector2(gpos))
         });
@@ -248,14 +239,19 @@ import player, {playerPoints} from "./player.js";
             //camera still centers on player
             app.stage.position.x -= mtv.x
             app.stage.position.y -= mtv.y
+
+            // let moveMag = wishAccel.magnitude();
+            // let moveDir = wishAccel.normalized();
+            // let realDir = moveDir.subtract(mtvDir).normalized();
+            // let dot = moveDir.dot(realDir);
+            // playerMoveAccel = realDir.scale(moveMag * dot);
+            //console.log(mtv);
         }
-        
-        //playerTotalAccel = playerMoveAccel ; //slows down with dot product of playermoveaccel and mtv?
-        
-        // let hitNormal =playerMoveAccel.normalized().dot(mtvDir);
-        // let oppForce = playerMoveAccel.scale(hitNormal);
-        // playerMoveAccel = playerMoveAccel.add(oppForce);
-        console.log(hit, mtv);
+        //console.log(playerMoveAccel);
+
+        //player view
+        tarViewRange = ads ? aimViewRange : defaultViewRange;
+        tarFov = ads ? aimFov : defaultFov;
     })
     function pointToVector2(_p){
         return new Vector2(_p.x, _p.y);
@@ -276,6 +272,7 @@ import player, {playerPoints} from "./player.js";
         else wishDir.y = 0;
 
         wishDir = wishDir.normalized();
+
         movePlayer(playerMoveAccel);
         moveCamera(playerMoveAccel, DeltaTime, lookDist);
 

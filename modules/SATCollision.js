@@ -7,7 +7,6 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
     let mtv = new Vector2(0,0);
     let minOverlap = Infinity;
     const polygons = [polygonA, polygonB];
-    let isColliding = true;
     //filter out duplicate axes ? for optimization
     for (let p = 0; p < 2; p++){
         const vertices = polygons[p]; 
@@ -21,14 +20,10 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
             const a = getProjection(polygonA, axis);
             const b = getProjection(polygonB, axis);
 
-            let smallerMax = Math.min(a.max, b.max);
-            let largerMin = Math.max(a.min, b.min);
-            let overlap = smallerMax - largerMin;
+            let overlap = Math.min(a.max, b.max) - Math.max(a.min, b.min);
 
             if(overlap <= 0){
-                //return new collisionInfo(false, new Vector2(0,0));
-                isColliding = false;
-                break;
+                return new collisionInfo(false, new Vector2(0,0));
             }
             
             if (overlap < minOverlap) {
@@ -40,9 +35,7 @@ export function satCollision(polygonA, polygonB){ //array of vertices of 2 objec
             }
         }
     }
-    
-    if(!isColliding) mtv = new Vector2(0,0);
-    return new collisionInfo(isColliding, mtv);
+    return new collisionInfo(true, mtv);
 }
 class collisionInfo{
     constructor(_hit, _mtv){
@@ -60,19 +53,6 @@ function getProjection(vertices, axis){
     }
     return {min, max};
 }
-/**
-* @param {Vector2} vertA 
-* @param {Vector2} vertB
-**/
-function unitVector(vertA, vertB){ //using v_a as origin find direction to v_b
-    let x  = vertB.x - vertA.x;
-    let y =  vertB.y - vertA.y;
-    //console.log(vertA, vertB);
-    let dir = new Vector2(x, y);
-    
-    return dir.normalized();
-}
-
 /** @param {Vector2} v */ 
 function getNormal(v){ //the current edge, 2 vetices //edge normal
     return new Vector2(v.y, -v.x) //x=y, y=-x 

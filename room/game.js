@@ -245,7 +245,7 @@ import pixiCollider from "./pixiCollider.js";
             // let realDir = moveDir.subtract(mtvDir).normalized();
             // let dot = moveDir.dot(realDir);
             // playerMoveAccel = realDir.scale(moveMag * dot);
-            //console.log(mtv);
+            console.log('hit', mtv);
         }
         //console.log(playerMoveAccel);
 

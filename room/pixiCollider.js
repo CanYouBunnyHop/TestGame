@@ -1,12 +1,20 @@
 import {GraphicsContext, Graphics, Point} from "../pixi.mjs";
 export default class pixiCollider{
     constructor(_points, _graphicsCtx){
-        this.graphicsCtx = _graphicsCtx;
         this.points = _points;
+        this.graphicsCtx = _graphicsCtx;
     }
     static createPolygonCollider(..._points){
         let graphicsCtx = new GraphicsContext().poly(_points);
         return new pixiCollider(_points, graphicsCtx);
+    }
+    static createRay(_angle, _magnitude){
+        let points = [ 
+            new Point(0, 0), 
+            new Point(_magnitude*Math.cos(_angle), _magnitude*Math.sin(_angle)),
+        ]
+        let graphicsCtx = new GraphicsContext().poly(points);
+        return new pixiCollider(points, graphicsCtx);
     }
     static createRectCollider(_x, _y, _width, _height){
         let origin = new Point(_x, _y);

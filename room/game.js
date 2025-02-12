@@ -10,8 +10,8 @@ import Tween, { lerp } from "../modules/Tween.js";
 import { isCloseEnough , clamp} from "../modules/Misc.js";
 import { satCollision } from "../modules/SATCollision.js";
 import physicsTicker from "./physics.js";
-import player, {playerCollider} from "./player.js";
-import pixiCollider from "./pixiCollider.js";
+import player from "./player.js";
+import ColliderCtx from "./pixiCollider.js";
 
 (async ()=>{
     const app = new Application();
@@ -39,18 +39,18 @@ import pixiCollider from "./pixiCollider.js";
     bgSprite.scale.set(1, 1);
     const bg = new Container()
     bg.addChild(bgSprite);
-    bg.scale.set(2,2);
+    bg.scale.set(1,1);
 
 
     //for testing view blocking
     const staticColliders = new Container();
     bg.addChild(staticColliders);
 
-    const boxCollider = pixiCollider.createRectCollider(0,0, 100, 100);
-    const box = new Graphics(boxCollider.graphicsCtx).fill();
+    const boxCollider = ColliderCtx.createRectCollider(0,0, 100, 100);
+    const box = boxCollider.draw().fill();
     box.position.set(100, 200);
     
-    box.rotation = Math.PI/6;
+    //box.rotation = Math.PI/6;
     staticColliders.addChild(box);
     //#endregion
 
@@ -79,9 +79,6 @@ import pixiCollider from "./pixiCollider.js";
     player.eventMode = 'static';
     player.on('globalpointermove', rotatePlayer);
     player.scale.set(0.4, 0.4);
-    
-    
-    
 
     //this is better for static textures, that don't get updated often; 
     //app.renderer.generateTexture({target: viewConeGraphics});
@@ -216,19 +213,8 @@ import pixiCollider from "./pixiCollider.js";
         if(isCloseEnough(playerMoveAccel.y, wishAccel.y, 0.01))
              playerMoveAccel.y = wishAccel.y;
         //TESTING COLLISION
-        var boxVertexPos = [];
-        boxCollider.points.forEach(p => {
-            let gpos = box.toGlobal(p)
-            boxVertexPos.push(pointToVector2(gpos))
-        });
-        //console.log(boxVertexPos);
-        var playerVertexPos = [];
-        playerCollider.points.forEach(p => {
-            let gpos = player.toGlobal(p)
-            playerVertexPos.push(pointToVector2(gpos))
-        });
-        
-        let collisionResult = satCollision(playerVertexPos, boxVertexPos);
+        //eventually, have to get a list of colliders to loop through
+        let collisionResult = satCollision(player.getGlobalVertices(), box.getGlobalVertices());
         let hit = collisionResult.hit;
         let mtv = collisionResult.mtv;
         let mtvDir = mtv.normalized();
@@ -245,7 +231,7 @@ import pixiCollider from "./pixiCollider.js";
             // let realDir = moveDir.subtract(mtvDir).normalized();
             // let dot = moveDir.dot(realDir);
             // playerMoveAccel = realDir.scale(moveMag * dot);
-            console.log('hit', mtv);
+            //console.log('hit', mtv);
         }
         //console.log(playerMoveAccel);
 
@@ -253,9 +239,6 @@ import pixiCollider from "./pixiCollider.js";
         tarViewRange = ads ? aimViewRange : defaultViewRange;
         tarFov = ads ? aimFov : defaultFov;
     })
-    function pointToVector2(_p){
-        return new Vector2(_p.x, _p.y);
-    }
     //#endregion
 
     //#region Update Loop
@@ -294,6 +277,10 @@ import pixiCollider from "./pixiCollider.js";
     player.label = 'player';
     app.stage.addChild(bg, darkOverlay, player);
     document.body.appendChild(app.canvas);
+
+    //DEBUG BOX BOUNDS
+    console.log(box.getBounds(), box.getGlobalVertices());
+    //console.log(player.getBounds());
 
     //for sending to peers
     //var canvas = app.view

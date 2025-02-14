@@ -10,10 +10,10 @@ class Bounds{
     }
 }
 class QuadTreeNode{
-    constructor(_bounds, _parentNode = null, _value = []){
+    constructor(_bounds, _parentNode = null, _collider = []){
         this.bounds = _bounds;
         this._parentNode = _parentNode;
-        this.value = _value; //stores ColliderGraphics
+        this.value = _collider; //stores ColliderGraphics
         
         this.isLeaf = true; //isLeaf means there are no splits
         this.nw = null; this.ne = null;
@@ -34,24 +34,43 @@ class QuadTreeNode{
     }
     //change this to take in polygon
     //check if some vertex is in which quad, add polygon to those quad
-    /**@param {ColliderGraphics} _value */
-    insert(_value){
+    /**@param {ColliderGraphics} _collider */
+    insert(_collider){
         //need the reference ColliderGraphics object in scene
         //need the points, so i can use toGlobal(p)
-        const globalPoints = _value.getGlobalVertices();
+        const globalVerts = _collider.getGlobalVertices();
         //get collider's global bounds
-        const colBounds = _value.getBounds();
+        const colBounds = _collider.getBounds();
         let curNode = baseNode;
         //sub divide until the maximum amount of polygon is 5 in a quadrant
         const maxCount = 5; 
         
-        //top left corner
+        //CHECK CURRENT NODE IS FULL
+        //IF NOT FULL ADD TO CURRENT NODE, RETURN
+        //IF FULL, CHECK IF CURNODE IS LEAF
+        //IF IS LEAF, SUBDIVIDE FIRST
+
+        //CHECK IF MINX, MAXX IS L OR R HALFS
+        //CHECK IF MINY, MAXY IS T OR B HALFS
+        //BOOLEANS L,R || T,B
+        //DEPENDING ON BOOLEANS, SELECT SPECIFIED QUADRANTS
+
+        //RECURSION
+        //FOR EACH SPECIFIED QUADRANTS 
+        //CHECK CURQUAD IS FULL
+        //IF NOT FULL, ADD TO CURQUAD, CONTINUE 
+        //IF FULL, CHECK IF CURQUAD IS LEAF
+        //IF IS LEAF, SUBDIVIDE FIRST
+        //...
+
+
+        //corners //DONT NEED CORNERS
         let topL = new Vector2(colBounds.minX, colBounds.minY);
         let topR =  new Vector2(colBounds.maxX, colBounds.minY);
         let botL = new Vector2(colBounds.minX, colBounds.maxY);
         let botR = new Vector2(colBounds.maxX, colBounds.maxY);
 
-        this.value.push(_value);
+        this.value.push(_collider);
     }
     //only split quad if each vertex is in the same quad
     splitQuad(){

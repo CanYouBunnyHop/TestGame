@@ -10,7 +10,6 @@ console.log('load host client');
 HOST.on('open', id=>{
     sessionStorage.setItem('host-id', id);
 
-
     hostIDDisplay.innerText = id;
     HOST.on('connection', (conn)=>{
         peers.push(conn);

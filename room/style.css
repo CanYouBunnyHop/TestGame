@@ -1,13 +1,7 @@
 canvas{
     display:block;
+    margin: 0%;
 }
 .displayid{
     display : inline-block;
-}
-
-#game-canvas{
-    width: 1200px;
-    height: 600px;
-    outline: 2px solid blueviolet;
-    background-color: salmon;
 }

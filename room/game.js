@@ -13,8 +13,8 @@ import physicsTicker from "./physics.js";
 import player from "./player.js";
 import ColliderCtx from "./pixiCollider.js";
 
+const app = new Application();
 (async ()=>{
-    const app = new Application();
     await app.init({
         //width : window.innerWidth,
         //height : window.innerHeight
@@ -40,7 +40,6 @@ import ColliderCtx from "./pixiCollider.js";
     const bg = new Container()
     bg.addChild(bgSprite);
     bg.scale.set(1,1);
-
 
     //for testing view blocking
     const staticColliders = new Container();

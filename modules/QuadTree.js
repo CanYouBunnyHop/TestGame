@@ -5,30 +5,56 @@ import Vector2 from "./Vector2.js";
 //for debugging
 import {debugLine} from "../room/collisionTest.js"
 
-//const baseNode = new QuadTreeNode(0,100, 0,100);
 export class Bounds{
     constructor(_minX, _maxX, _minY, _maxY){
-        this.minX = _minX;
-        this.maxX = _maxX;
-        this.minY = _minY;
-        this.maxY = _maxY;
+        this.minX = _minX; this.maxX = _maxX;
+        this.minY = _minY; this.maxY = _maxY;
 
-        this.midX = _minX + (_maxX - _minX)/2
-        this.midY = _minY + (_maxY - _minY)/2 //0 + (200 - 0)/2 = 0 + 100
+        this.midX = _minX + (_maxX - _minX)/2;
+        this.midY = _minY + (_maxY - _minY)/2;
     }
     overlaps(_other){
         let xIsWithin = _other.minX < this.maxX && _other.maxX >= this.minX;
         let yIsWithin = _other.minY < this.maxY && _other.maxY >= this.minY;
         return xIsWithin && yIsWithin;
     }
+    within(_point){
+        let xIsWithin = _point.x < this.maxX && _point.x >= this.minX;
+        let yIsWithin = _point.y < this.maxY && _point.y >= this.minY;
+        return xIsWithin && yIsWithin;
+    }
 }
 export default class QuadTreeNode{
-    constructor(_bounds, _parentNode = null, _colliders = []){
+    constructor(_bounds, _parentNode = null, _depth = 0, _colliders = []){
         this.bounds = _bounds;
         this.parentNode = _parentNode;
+        this.depth = _depth;
         this.colliders = _colliders; //stores ColliderGraphics
-        
         this.isLeaf = true; //isLeaf means there are no splits
+    }
+    getNode(_collider, _baseNode = this){
+        //input collider, output node?
+        //for each vertex, get the deepest quadrants
+        const colBounds = _collider.getBounds();
+        
+        //pseudo coding?
+        const topLeft = new Point(colBounds.minX, colBounds.minY);
+        const topRight = new Point(colBounds.maxX, colBounds.minY);
+        const botLeft = new Point(colBounds.minX, colBounds.maxY);
+        const botRight = new Point(colBounds.maxX, colBounds.maxY);
+
+        //get the node where topLeft is in
+        //1) let innerNode = _baseNode
+        //2) if innerNode is leaf, retrieve colliders
+        //3) else go inwards till innerNode is leaf
+
+
+        //get the node where topRight is in
+        //get the node where botLeft is in
+        //get the node where botRight is in
+        
+        //let topL = 
+
     }
     //change this to take in polygon
     //check if some vertex is in which quad, add polygon to those quad
@@ -38,20 +64,16 @@ export default class QuadTreeNode{
         //need the points, so i can use toGlobal(p)
         //const globalVerts = _collider.getGlobalVertices()
         
-        
         //sub divide until the maximum amount of polygon is 5 in a quadrant
-        const maxCount = 3; 
+        const maxCount = 3; const maxDepth = 5; 
 
-        //add collider to current node if count is not exceeded
-        if (_curNode.colliders.length < maxCount){
+        //add collider to current node if count is not exceeded or maxDepth has been reached
+        if (_curNode.colliders.length < maxCount || this.depth > maxDepth){ 
             _curNode.colliders.push(_collider);
-            //console.log('added');
             return;
         }
-        var justBeenSplit = false;
         if(_curNode.isLeaf && _curNode.colliders.length >= maxCount){
             _curNode.splitQuad();
-            justBeenSplit = true;
         }
 
         //get collider's global bounds
@@ -62,38 +84,19 @@ export default class QuadTreeNode{
         let maxYisTop = !minYisTop ? false : colBounds.maxY < this.bounds.midY;
 
         let topL = minXisLeft && minYisTop;
-        let topR = !maxXisLeft && minYisTop; //maxX has to be right
+        let topR = !maxXisLeft && minYisTop;
         let botL = minXisLeft && !maxYisTop;
         let botR = !maxXisLeft && !maxYisTop;
         //console.log(colBounds.minX, _curNode.bounds.midX);
         //recursion
-        if(topL){
-            this.topL.insert(_collider, this.topL);
-            console.log("topl")
-        }
-            
-        if(topR){
-            this.topR.insert(_collider, this.topR);
-            console.log("topr")
-        }
-            
-        if(botL){
-            this.botL.insert(_collider, this.botL);
-            console.log("botl")
-        }
-        
-        if(botR){
-            this.botR.insert(_collider, this.botR);
-            console.log("botr")
-        }        
-    
-        //console.log(minXisLeft, maxXisLeft, minYisTop, maxYisTop);
-        //need to go back up and move old colliders into new leaf nodes
-        //if(_curNode.parentNode.colliders.length > 0){
-        //    for (let col of _curNode.parentNode.colliders){
-
-          //  }
-        //}
+        if(topL)
+            this.topL.insert(_collider, this.topL, _pushing);
+        if(topR)
+            this.topR.insert(_collider, this.topR, _pushing);
+        if(botL)
+            this.botL.insert(_collider, this.botL, _pushing);
+        if(botR)
+            this.botR.insert(_collider, this.botR, _pushing);
     }
     //only split quad if each vertex is in the same quad
     splitQuad(){
@@ -108,10 +111,10 @@ export default class QuadTreeNode{
         let se = new Bounds(...east, ...south);
         
         //create new node
-        this.topL = new QuadTreeNode(nw, this);
-        this.topR = new QuadTreeNode(ne, this);
-        this.botL = new QuadTreeNode(sw, this);
-        this.botR = new QuadTreeNode(se, this);
+        this.topL = new QuadTreeNode(nw, this, this.depth+1);
+        this.topR = new QuadTreeNode(ne, this, this.depth+1);
+        this.botL = new QuadTreeNode(sw, this, this.depth+1);
+        this.botR = new QuadTreeNode(se, this, this.depth+1);
         this.isLeaf = false;
 
         //move colliders into the new nodes
@@ -134,4 +137,5 @@ export default class QuadTreeNode{
         debugLine(new Point(this.bounds.midX, this.bounds.minY), new Point(this.bounds.midX, this.bounds.maxY));//mid vertical
         debugLine(new Point(this.bounds.minX, this.bounds.midY), new Point(this.bounds.maxX, this.bounds.midY));//mid horizontal
     }
+    //getNode(_currentBounds)
 }

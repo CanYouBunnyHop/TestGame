@@ -1,6 +1,6 @@
 ## **Multiplayer top-down shooter**
 
-## Status : on-hold
+**Status : on-hold**
 
 The free PeerJS Server is used as the signalling server to establish p2p connection, although there are nothing being sent between the peers currently.
 PixiJs library is used to handle the rendering

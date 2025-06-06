@@ -52,8 +52,6 @@ export default class QuadTreeNode{
         //get the node where topRight is in
         //get the node where botLeft is in
         //get the node where botRight is in
-        
-        //let topL = 
 
     }
     //change this to take in polygon
@@ -90,13 +88,13 @@ export default class QuadTreeNode{
         //console.log(colBounds.minX, _curNode.bounds.midX);
         //recursion
         if(topL)
-            this.topL.insert(_collider, this.topL, _pushing);
+            this.topL.insert(_collider, this.topL);
         if(topR)
-            this.topR.insert(_collider, this.topR, _pushing);
+            this.topR.insert(_collider, this.topR);
         if(botL)
-            this.botL.insert(_collider, this.botL, _pushing);
+            this.botL.insert(_collider, this.botL);
         if(botR)
-            this.botR.insert(_collider, this.botR, _pushing);
+            this.botR.insert(_collider, this.botR);
     }
     //only split quad if each vertex is in the same quad
     splitQuad(){
